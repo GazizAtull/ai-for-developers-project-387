@@ -1,5 +1,5 @@
 name: opencode
-run-name: opencode #${{ github.event.issue.number || github.event.pull_request.number }}
+run-name: "opencode #${{ github.event.issue.number || github.event.pull_request.number }}"
 
 # Агент OpenCode отвечает на команды /oc и /opencode в обсуждении issue и PR
 # и в комментариях к строкам diff. Скиллы берутся из .agents/skills/ (лежат в
