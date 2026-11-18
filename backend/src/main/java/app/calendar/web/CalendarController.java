@@ -54,6 +54,7 @@ public class CalendarController {
   @PostMapping("/bookings")
   @ResponseStatus(HttpStatus.CREATED)
   public Booking createBooking(@RequestBody CreateBookingRequest body) {
-    return service.book(body.eventTypeId(), body.start(), body.guestName(), body.guestEmail());
+    return service.book(
+        body.eventTypeId(), body.start(), body.guestName(), body.guestEmail(), body.topic());
   }
 }

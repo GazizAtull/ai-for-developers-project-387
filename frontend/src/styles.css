@@ -12,6 +12,7 @@ button.tab.active, .selected { background: #2457d6; color: #fff; border-color: #
 .choice.selected .muted { color: #dbe4ff; }
 .days, .slots { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
 .muted { color: #6b7686; }
+.topic { white-space: pre-wrap; }
 .form { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
 .form label { display: flex; flex-direction: column; gap: 4px; }
 input, textarea { font: inherit; padding: 8px; border: 1px solid #c5ccd6; border-radius: 8px; }

@@ -181,6 +181,10 @@ components:
           type: string
         guestEmail:
           type: string
+        topic:
+          type: string
+          maxLength: 300
+          description: Тема разговора. Пустая строка, если гость её не указал.
     CreateBooking:
       type: object
       required:
@@ -202,6 +206,10 @@ components:
         guestEmail:
           type: string
           format: email
+        topic:
+          type: string
+          maxLength: 300
+          description: 'Тема разговора: о чём гость хочет поговорить. Необязательно, до 300 символов.'
     CreateEventType:
       type: object
       required:

@@ -99,6 +99,66 @@ class CalendarServiceTest {
   }
 
   @Test
+  void topicIsOptionalTrimmedAndKeepsInnerLineBreaks() {
+    Booking withTopic =
+        service.book(
+            short30.id(),
+            at("2026-11-19", "10:00"),
+            "Аня",
+            "anya@example.com",
+            "  Обсудить проект\nи сроки  ");
+    assertEquals("Обсудить проект\nи сроки", withTopic.topic());
+
+    Booking withoutTopic =
+        service.book(
+            short30.id(), at("2026-11-19", "10:30"), "Боб", "bob@example.com", null);
+    assertEquals("", withoutTopic.topic());
+
+    Booking blankTopic =
+        service.book(
+            short30.id(), at("2026-11-19", "11:00"), "Вика", "vika@example.com", "   \n  ");
+    assertEquals("", blankTopic.topic());
+  }
+
+  @Test
+  void topicUpTo300IsAcceptedAndLongerIsRejected() {
+    String max = "я".repeat(300);
+    Booking booking =
+        service.book(
+            short30.id(), at("2026-11-19", "10:00"), "Аня", "anya@example.com", max);
+    assertEquals(300, booking.topic().length());
+
+    CalendarException e =
+        assertThrows(
+            CalendarException.class,
+            () ->
+                service.book(
+                    short30.id(),
+                    at("2026-11-19", "10:30"),
+                    "Боб",
+                    "bob@example.com",
+                    "я".repeat(301)));
+    assertEquals(Kind.VALIDATION_ERROR, e.kind());
+  }
+
+  @Test
+  void conflictWithTopicStillReturnsSlotTaken() {
+    service.book(
+        short30.id(), at("2026-11-19", "10:00"), "Аня", "anya@example.com", "Первая тема");
+    CalendarException e =
+        assertThrows(
+            CalendarException.class,
+            () ->
+                service.book(
+                    short30.id(),
+                    at("2026-11-19", "10:00"),
+                    "Боб",
+                    "bob@example.com",
+                    "Вторая тема"));
+    assertEquals(Kind.SLOT_TAKEN, e.kind());
+  }
+
+  @Test
   void backToBackBookingsAreAllowed() {
     service.book(short30.id(), at("2026-11-19", "10:00"), "Аня", "anya@example.com");
     service.book(short30.id(), at("2026-11-19", "10:30"), "Боб", "bob@example.com");

@@ -64,6 +64,9 @@ model CreateBooking {
   @minLength(1) @maxLength(100) guestName: string;
 
   @format("email") guestEmail: string;
+
+  @doc("Тема разговора: о чём гость хочет поговорить. Необязательно, до 300 символов.")
+  @maxLength(300) topic?: string;
 }
 
 model Booking {
@@ -74,6 +77,9 @@ model Booking {
   end: utcDateTime;
   guestName: string;
   guestEmail: string;
+
+  @doc("Тема разговора. Пустая строка, если гость её не указал.")
+  @maxLength(300) topic?: string;
 }
 
 @doc("Код ошибки: VALIDATION_ERROR, EVENT_TYPE_EXISTS, EVENT_TYPE_NOT_FOUND, SLOT_UNAVAILABLE, SLOT_TAKEN.")

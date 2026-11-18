@@ -11,6 +11,7 @@ export default function GuestPage() {
   const [start, setStart] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [topic, setTopic] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [booked, setBooked] = useState<Booking | null>(null);
@@ -47,7 +48,15 @@ export default function GuestPage() {
     setBusy(true);
     setError(null);
     try {
-      setBooked(await api.createBooking({ eventTypeId: type.id, start, guestName: name, guestEmail: email }));
+      setBooked(
+        await api.createBooking({
+          eventTypeId: type.id,
+          start,
+          guestName: name,
+          guestEmail: email,
+          topic: topic.trim(),
+        }),
+      );
     } catch (err) {
       setError((err as Error).message);
       if (err instanceof ApiProblem && (err.code === 'SLOT_TAKEN' || err.code === 'SLOT_UNAVAILABLE')) {
@@ -67,6 +76,7 @@ export default function GuestPage() {
     setBooked(null);
     setName('');
     setEmail('');
+    setTopic('');
     setError(null);
   }
 
@@ -81,6 +91,7 @@ export default function GuestPage() {
           {booked.eventTypeTitle}: {formatDateTime(booked.start, availability.timezone)} —{' '}
           {formatTime(booked.end, availability.timezone)} ({availability.timezone})
         </p>
+        {booked.topic && <p className="topic">Тема: {booked.topic}</p>}
         <button onClick={reset}>Записаться ещё</button>
       </section>
     );
@@ -159,6 +170,15 @@ export default function GuestPage() {
           <label>
             Email
             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          </label>
+          <label>
+            Тема разговора
+            <textarea
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+              maxLength={300}
+              rows={3}
+            />
           </label>
           <button type="submit" disabled={busy}>
             {busy ? 'Записываем…' : 'Записаться'}

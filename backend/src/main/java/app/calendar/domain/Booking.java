@@ -10,4 +10,5 @@ public record Booking(
     Instant start,
     Instant end,
     String guestName,
-    String guestEmail) {}
+    String guestEmail,
+    String topic) {}

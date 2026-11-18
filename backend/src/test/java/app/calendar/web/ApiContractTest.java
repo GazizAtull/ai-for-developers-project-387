@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -42,14 +43,19 @@ class ApiContractTest {
   }
 
   private ResponseEntity<String> book(String typeId, String start, String name) {
-    return http.postForEntity(
-        "/api/bookings",
-        Map.of(
-            "eventTypeId", typeId,
-            "start", start,
-            "guestName", name,
-            "guestEmail", "g@example.com"),
-        String.class);
+    return book(typeId, start, name, null);
+  }
+
+  private ResponseEntity<String> book(String typeId, String start, String name, String topic) {
+    Map<String, Object> body = new LinkedHashMap<>();
+    body.put("eventTypeId", typeId);
+    body.put("start", start);
+    body.put("guestName", name);
+    body.put("guestEmail", "g@example.com");
+    if (topic != null) {
+      body.put("topic", topic);
+    }
+    return http.postForEntity("/api/bookings", body, String.class);
   }
 
   /** Первый день окна, где у типа свободен старт 10:00 по Алматы (05:00Z). */
@@ -137,6 +143,59 @@ class ApiContractTest {
     assertThat(list.getStatusCode().value()).isEqualTo(200);
     assertThat(body(list)).hasSize(2);
     assertThat(body(list).get(0).get("guestName").asText()).isEqualTo("Аня");
+  }
+
+  @Test
+  void bookingWithTopicIsReturnedAndListed() throws Exception {
+    createType("intro", "Знакомство", 30);
+    String ten = tenOClock("intro");
+
+    ResponseEntity<String> created = book("intro", ten, "Аня", "  Обсудить проект\nи сроки  ");
+    assertThat(created.getStatusCode().value()).isEqualTo(201);
+    assertThat(body(created).get("topic").asText()).isEqualTo("Обсудить проект\nи сроки");
+
+    ResponseEntity<String> list = http.getForEntity("/api/bookings", String.class);
+    assertThat(list.getStatusCode().value()).isEqualTo(200);
+    assertThat(body(list).get(0).get("topic").asText()).isEqualTo("Обсудить проект\nи сроки");
+  }
+
+  @Test
+  void bookingWithoutTopicWorksAsBefore() throws Exception {
+    createType("intro", "Знакомство", 30);
+    String ten = tenOClock("intro");
+
+    ResponseEntity<String> created = book("intro", ten, "Аня");
+    assertThat(created.getStatusCode().value()).isEqualTo(201);
+    assertThat(body(created).get("topic").asText()).isEmpty();
+
+    ResponseEntity<String> list = http.getForEntity("/api/bookings", String.class);
+    assertThat(body(list)).hasSize(1);
+    assertThat(body(list).get(0).get("guestName").asText()).isEqualTo("Аня");
+  }
+
+  @Test
+  void topicLongerThan300IsRejected() throws Exception {
+    createType("intro", "Знакомство", 30);
+    String ten = tenOClock("intro");
+
+    ResponseEntity<String> tooLong = book("intro", ten, "Аня", "я".repeat(301));
+    assertThat(tooLong.getStatusCode().value()).isEqualTo(400);
+    assertThat(body(tooLong).get("code").asText()).isEqualTo("VALIDATION_ERROR");
+    assertThat(body(tooLong).get("message").asText()).contains("300");
+
+    assertThat(book("intro", ten, "Аня", "я".repeat(300)).getStatusCode().value()).isEqualTo(201);
+  }
+
+  @Test
+  void conflictWithTopicReturnsSlotTaken() throws Exception {
+    createType("intro", "Знакомство", 30);
+    String ten = tenOClock("intro");
+
+    assertThat(book("intro", ten, "Аня", "Первая тема").getStatusCode().value()).isEqualTo(201);
+
+    ResponseEntity<String> second = book("intro", ten, "Боб", "Вторая тема");
+    assertThat(second.getStatusCode().value()).isEqualTo(409);
+    assertThat(body(second).get("code").asText()).isEqualTo("SLOT_TAKEN");
   }
 
   @Test

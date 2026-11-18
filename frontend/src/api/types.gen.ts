@@ -31,6 +31,10 @@ export type Booking = {
     end: string;
     guestName: string;
     guestEmail: string;
+    /**
+     * Тема разговора. Пустая строка, если гость её не указал.
+     */
+    topic?: string;
 };
 
 export type CreateBooking = {
@@ -41,6 +45,10 @@ export type CreateBooking = {
     start: string;
     guestName: string;
     guestEmail: string;
+    /**
+     * Тема разговора: о чём гость хочет поговорить. Необязательно, до 300 символов.
+     */
+    topic?: string;
 };
 
 export type CreateEventType = {
