@@ -176,7 +176,6 @@ export default function GuestPage() {
             <textarea
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
-              maxLength={300}
               rows={3}
             />
           </label>

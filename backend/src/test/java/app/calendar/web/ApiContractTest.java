@@ -36,8 +36,8 @@ class ApiContractTest {
   }
 
   private void assertNoTopic(JsonNode booking) {
-    JsonNode topic = booking.get("topic");
-    assertThat(topic == null || topic.isNull()).isTrue();
+    // Контракт: topic?: string — без темы поля нет совсем, а не "topic": null
+    assertThat(booking.has("topic")).isFalse();
   }
 
   private ResponseEntity<String> createType(String id, String title, int minutes) {
