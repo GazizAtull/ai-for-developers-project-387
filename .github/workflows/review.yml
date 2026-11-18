@@ -55,8 +55,8 @@ jobs:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
           OPENCODE_CONFIG: .github/opencode-review.json
         run: |
-          curl -fsSL https://opencode.ai/install | bash
-          export PATH="$HOME/.opencode/bin:$PATH"
+          # Версия CLI зафиксирована: без удалённого install-скрипта в шаге с секретом
+          npm install -g opencode-ai@1.19.6
           opencode run --model opencode/big-pickle "$(cat <<'EOF'
           Ты независимый ревьюер pull request календаря звонков. Код не меняй.
           Прочитай REVIEW.md (критерии ревью) и AGENTS.md. Контекст PR лежит в .review/:
@@ -69,8 +69,10 @@ jobs:
           Если подтверждённых дефектов нет, так и напиши. Ответ на русском, Markdown,
           начни с заголовка «## Авторевью».
           EOF
-          )" > review.md
-          test -s review.md
+          )" > raw-review.md
+          # Публикуем только итог ревью, без промежуточных реплик агента
+          sed -n '/^## Авторевью/,$p' raw-review.md > review.md
+          test -s review.md || cp raw-review.md review.md
 
       - name: Publish review
         env:
