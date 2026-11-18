@@ -81,6 +81,7 @@ docker run --rm -e PORT=10000 -p 10000:10000 call-calendar
 | [`triage.yml`](.github/workflows/triage.yml) | `issues` (`types: [opened]`) | `opencode/big-pickle` | автотриаж входящего обращения по скиллу `triage`: что уже умеет приложение, вопросы, метки `needs-triage`/`needs-info`, следующий шаг. Код не меняет | комментарий OpenCode App в новом issue, прогон в Actions → triage |
 
 - **Автотриаж** работает по `prompt` в воркфлоу, без команды. Запускается только для обращений доверенных участников (`OWNER`, `MEMBER`, `COLLABORATOR`), не для ботов. Тикеты от `to-spec`/`to-tickets` (метки `ready-for-agent`, `ready-for-human`, см. `docs/agents/triage-labels.md`) и созданные ботом пропускаются. `timeout-minutes: 15`, один прогон на issue.
+- **`opencode.json`:** `permission.external_directory: deny`. На раннере некому отвечать на запросы разрешений, поэтому доступ за пределы репозитория запрещён сразу, без вопроса (иначе прогон висит до тайм-аута).
 - **Агент:** OpenCode GitHub App, установлен на репозиторий. Авторизация стандартная: OIDC-токен обменивается на токен приложения, поэтому у workflow только `contents: read` и `id-token: write`, у checkout `persist-credentials: false`.
 - **Команды (`mentions`):** набор по умолчанию, `/opencode` и `/oc`.
 - **`share: false`:** репозиторий открытый, сессии агента с контекстом задач не публикуются.
