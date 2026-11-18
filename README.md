@@ -116,6 +116,7 @@ mise run check
 - Воркфлоу: [`audit.yml`](.github/workflows/audit.yml), `schedule` (пн 06:00 UTC, не чаще раза в сутки) и `workflow_dispatch` в одном файле, в `main`.
 - Первый ручной запуск: [прогон 44362669326](https://github.com/GazizAtull/ai-for-developers-project-387/actions/runs/44362669326) — агент создал issue по двум новым находкам: [#15](https://github.com/GazizAtull/ai-for-developers-project-387/issues/15) (high-уязвимость `js-yaml` во фронтенде) и [#16](https://github.com/GazizAtull/ai-for-developers-project-387/issues/16) (главная страница живого приложения отвечает ~54 с после сна бесплатного Render).
 - Повторный запуск с теми же данными: [прогон 44363148983](https://github.com/GazizAtull/ai-for-developers-project-387/actions/runs/44363148983) — новых issue нет, задание `publish` нашло те же отпечатки и пропустило дубли.
+- Запуск обновлённого воркфлоу (вывод агента в Summary и артефакте): [прогон 44367836078](https://github.com/GazizAtull/ai-for-developers-project-387/actions/runs/44367836078) — дублей нет, артефакты `audit-report` и `audit-agent-output`.
 - Где результат: отчёт — артефакт `audit-report`, полный ответ агента — артефакт `audit-agent-output`, краткий вывод (находки или «Находок нет») — Summary прогона, задачи — issue с меткой `audit` со ссылкой на прогон и проверенным адресом. Отчёты в коммиты не попадают (`report/`, `out/` в `.gitignore`).
 - Адрес приложения берётся из переменной репозитория `APP_URL`, если она задана, иначе прежний рабочий адрес на Render.
 
