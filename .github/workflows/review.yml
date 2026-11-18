@@ -108,10 +108,12 @@ jobs:
           wc -c .review/prompt.md
           timeout 12m opencode run --model opencode/deepseek-v4.1-flash-free "$(cat .review/prompt.md)" \
             > raw-review.md || echo "::warning::opencode run завершился с ошибкой или по тайм-ауту"
-          # Публикуем только итог ревью, без промежуточных реплик агента
-          sed -n '/^## Авторевью/,$p' raw-review.md > review.md
-          # Сырой поток не публикуем никогда: без итога только ссылка на логи
-          test -s review.md || printf '## Авторевью\n\nРевью не сформировано (нет итогового раздела), нужен человек: см. логи прогона.\n' > review.md
+          echo "ответ модели: $(wc -c < raw-review.md) байт"
+          # Без инструментов в ответе только текст модели. Есть заголовок — берём раздел с него;
+          # нет — публикуем ответ целиком; пустой ответ — сообщение со ссылкой на логи.
+          sed -n '/Авторевью/,$p' raw-review.md > review.md
+          test -s review.md || { printf '## Авторевью\n\n'; cat raw-review.md; } > review.md
+          grep -q '[^[:space:]]' raw-review.md || printf '## Авторевью\n\nМодель вернула пустой ответ, нужен человек: см. логи прогона.\n' > review.md
 
       - name: Publish review
         env:
