@@ -1,6 +1,10 @@
 name: ci
 
-on: [push, pull_request]
+# Ветки PR проверяются один раз (pull_request), main — после мержа (push).
+on:
+  push:
+    branches: [main]
+  pull_request:
 
 jobs:
   check:
