@@ -8,6 +8,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v2
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('backend/**/*.gradle', 'backend/gradle/wrapper/gradle-wrapper.properties') }}
       - run: mise run install
       - run: npm exec --prefix frontend -- playwright install-deps chromium
       - run: mise run check
