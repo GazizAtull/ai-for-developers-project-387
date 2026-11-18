@@ -84,7 +84,7 @@ docker run --rm -e PORT=10000 -p 10000:10000 call-calendar
 - **`opencode.json`:** `permission.external_directory: deny`. На раннере некому отвечать на запросы разрешений, поэтому доступ за пределы репозитория запрещён сразу, без вопроса (иначе прогон висит до тайм-аута).
 - **Агент:** OpenCode GitHub App, установлен на репозиторий. Авторизация стандартная: OIDC-токен обменивается на токен приложения, поэтому у workflow только `contents: read` и `id-token: write`, у checkout `persist-credentials: false`.
 - **Команды (`mentions`):** набор по умолчанию, `/opencode` и `/oc`.
-- **`share: false`:** репозиторий открытый, сессии агента с контекстом задач не публикуются.
+- **`share`:** решение: сессии агента не публикуются (репозиторий открытый). В `anomalyco/opencode/github@v1.19.6` параметр `share` устарел и игнорируется, публикация сессий отключена самим OpenCode, поэтому в воркфлоу его нет. Версия action зафиксирована: `@latest` падал на получении версии.
 - **Ограничения:** запускают только `OWNER`, `MEMBER`, `COLLABORATOR`; комментарии ботов игнорируются; fork-PR секреты не получают (`pull_request_target` не используется); `timeout-minutes: 30`; один прогон на issue/PR (`concurrency`). Остановить: Actions → opencode → Cancel workflow, отключить совсем: Disable workflow.
 - **Скиллы на раннере:** проектные скиллы лежат в `.agents/skills/` и приезжают с checkout, настройки трекера в `docs/agents/`.
 

@@ -29,12 +29,11 @@ jobs:
           persist-credentials: false
 
       - name: Triage with OpenCode
-        uses: anomalyco/opencode/github@latest
+        uses: anomalyco/opencode/github@v1.19.6
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
         with:
           model: opencode/big-pickle
-          share: false
           prompt: |
             Проведи предварительный разбор нового обращения по скиллу triage.
             Сначала прочитай AGENTS.md, docs/agents/ (трекер и метки), SPEC.md и GLOSSARY.md.
