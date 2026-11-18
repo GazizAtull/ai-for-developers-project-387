@@ -78,7 +78,9 @@ docker run --rm -e PORT=10000 -p 10000:10000 call-calendar
 | Workflow | Событие | Модель | Назначение | Где результат |
 |---|---|---|---|---|
 | [`opencode.yml`](.github/workflows/opencode.yml) | `issue_comment`, `pull_request_review_comment` (`types: [created]`) с командой `/oc` или `/opencode` | `opencode/big-pickle` (бесплатная модель OpenCode, ключ `OPENCODE_API_KEY` в Secrets) | разбор issue, спецификация и тикеты (`to-spec`, `to-tickets`), реализация (`implement-spec`), правки PR по ревью | ответ комментарием от OpenCode App в issue/PR, прогон во вкладке Actions → opencode |
+| [`triage.yml`](.github/workflows/triage.yml) | `issues` (`types: [opened]`) | `opencode/big-pickle` | автотриаж входящего обращения по скиллу `triage`: что уже умеет приложение, вопросы, метки `needs-triage`/`needs-info`, следующий шаг. Код не меняет | комментарий OpenCode App в новом issue, прогон в Actions → triage |
 
+- **Автотриаж** работает по `prompt` в воркфлоу, без команды. Запускается только для обращений доверенных участников (`OWNER`, `MEMBER`, `COLLABORATOR`), не для ботов. Тикеты от `to-spec`/`to-tickets` (метки `ready-for-agent`, `ready-for-human`, см. `docs/agents/triage-labels.md`) и созданные ботом пропускаются. `timeout-minutes: 15`, один прогон на issue.
 - **Агент:** OpenCode GitHub App, установлен на репозиторий. Авторизация стандартная: OIDC-токен обменивается на токен приложения, поэтому у workflow только `contents: read` и `id-token: write`, у checkout `persist-credentials: false`.
 - **Команды (`mentions`):** набор по умолчанию, `/opencode` и `/oc`.
 - **`share: false`:** репозиторий открытый, сессии агента с контекстом задач не публикуются.
