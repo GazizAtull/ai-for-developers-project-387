@@ -1,0 +1,161 @@
+name: audit
+
+# Регулярный аудит: по расписанию собирается отчёт о состоянии приложения,
+# агент (OpenCode CLI, без инструментов) разбирает его и возвращает находки
+# в JSON. Issue создаёт отдельный шаг без модели и только для новых находок:
+# у каждой находки есть отпечаток (fingerprint), уже открытые или закрытые
+# issue с тем же отпечатком повторно не заводятся.
+on:
+  schedule:
+    - cron: "0 6 * * 1"   # каждый понедельник 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: audit
+  cancel-in-progress: false
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build health report
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APP_URL: https://call-calendar-4mq9.onrender.com
+        run: |
+          mkdir -p report
+          npm ci --prefix frontend --ignore-scripts > /dev/null
+          npm ci --prefix contract --ignore-scripts > /dev/null
+          npm audit --prefix frontend --json > report/npm-audit-frontend.json || true
+          npm audit --prefix contract --json > report/npm-audit-contract.json || true
+          npm outdated --prefix frontend --json > report/npm-outdated-frontend.json || true
+          # Живое приложение: доступность и время ответа (бесплатный тариф засыпает)
+          for path in / /api/event-types; do
+            curl -s -o /dev/null -w "$path %{http_code} %{time_total}s\n" --max-time 90 "$APP_URL$path" || echo "$path unreachable"
+          done > report/app-health.txt
+          # Последние прогоны CI на main
+          gh api "repos/${{ github.repository }}/actions/workflows/ci.yml/runs?branch=main&per_page=10" \
+            --jq '[.workflow_runs[] | {sha: .head_sha[0:7], conclusion, created_at}]' > report/ci-main.json
+          ls -la report
+      - uses: actions/upload-artifact@v4
+        with:
+          name: audit-report
+          path: report/
+          retention-days: 30
+
+  analyze:
+    needs: report
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: read
+    outputs:
+      findings: ${{ steps.parse.outputs.findings }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: audit-report
+          path: report
+      - name: Analyze with OpenCode CLI
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+        run: |
+          printf '{"permission":{"edit":"deny","bash":"deny","webfetch":"deny","external_directory":"deny"}}' > "$RUNNER_TEMP/oc.json"
+          export OPENCODE_CONFIG="$RUNNER_TEMP/oc.json"
+          npm install -g opencode-ai@1.19.6 > /dev/null
+          python3 - <<'PY'
+          import json, pathlib
+          def r(p, n):
+              t = pathlib.Path(p).read_text(encoding="utf-8", errors="replace")
+              return t[:n]
+          def audit(p):
+              try:
+                  d = json.loads(pathlib.Path(p).read_text(encoding="utf-8"))
+              except Exception:
+                  return "(нет данных)"
+              v = d.get("vulnerabilities", {})
+              return json.dumps({k: {"severity": x.get("severity"), "via": [y if isinstance(y, str) else y.get("title") for y in x.get("via", [])][:3], "fixAvailable": bool(x.get("fixAvailable"))} for k, x in v.items()}, ensure_ascii=False)[:8000]
+          prompt = "\n\n".join([
+              "Ты аудитор календаря звонков. Инструменты не используй, весь отчёт ниже. Найди проблемы, по которым "
+              "стоит завести задачу: уязвимости зависимостей (high/critical), недоступность или медленный ответ "
+              "живого приложения, падения CI на main. Мелочи не включай. Ответь ТОЛЬКО JSON-массивом без текста вокруг: "
+              '[{"fingerprint": "короткий стабильный ключ, например npm:frontend:vite или app:down или ci:main-red", '
+              '"title": "заголовок issue", "body": "что найдено, где, почему важно, что предлагается"}]. '
+              "Если проблем нет, верни [].",
+              "## npm audit frontend\n" + audit("report/npm-audit-frontend.json"),
+              "## npm audit contract\n" + audit("report/npm-audit-contract.json"),
+              "## npm outdated frontend\n" + r("report/npm-outdated-frontend.json", 4000),
+              "## Живое приложение (путь, код, время)\n" + r("report/app-health.txt", 1000),
+              "## CI на main (последние прогоны)\n" + r("report/ci-main.json", 3000),
+          ])
+          pathlib.Path("prompt.md").write_text(prompt, encoding="utf-8")
+          PY
+          timeout 10m opencode run --model opencode/deepseek-v4.1-flash-free "$(cat prompt.md)" > raw.txt || echo "::warning::модель не ответила"
+          cat raw.txt
+      - id: parse
+        run: |
+          python3 - <<'PY'
+          import json, os, re, pathlib
+          raw = pathlib.Path("raw.txt").read_text(encoding="utf-8", errors="replace")
+          m = re.search(r"\[.*\]", raw, re.S)
+          try:
+              items = json.loads(m.group(0)) if m else []
+          except Exception:
+              items = []
+          items = [i for i in items if isinstance(i, dict) and i.get("fingerprint") and i.get("title")][:5]
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+              f.write("findings=" + json.dumps(items, ensure_ascii=False) + "\n")
+          print(json.dumps(items, ensure_ascii=False, indent=2))
+          PY
+
+  publish:
+    # Без модели: проверка дублей по отпечатку и создание issue.
+    needs: analyze
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          FINDINGS: ${{ needs.analyze.outputs.findings }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess
+          repo = os.environ["GITHUB_REPOSITORY"]
+          findings = json.loads(os.environ.get("FINDINGS") or "[]")
+          subprocess.run(["gh", "label", "create", "audit", "--repo", repo, "--color", "b60205", "--description", "Находка регулярного аудита"], capture_output=True)
+          existing = json.loads(subprocess.run(
+              ["gh", "issue", "list", "--repo", repo, "--label", "audit", "--state", "all", "--limit", "200", "--json", "number,body,state"],
+              capture_output=True, text=True, check=True).stdout)
+          for f in findings:
+              mark = f"<!-- audit-fingerprint: {f['fingerprint']} -->"
+              dup = next((i for i in existing if mark in (i.get("body") or "")), None)
+              if dup:
+                  print(f"дубль {f['fingerprint']}: уже есть #{dup['number']} ({dup['state']}), новое issue не создаю")
+                  continue
+              body = f"{f.get('body', '')}\n\n---\nНайдено регулярным аудитом: {os.environ['RUN_URL']}\n{mark}"
+              out = subprocess.run(["gh", "issue", "create", "--repo", repo, "--title", f["title"], "--body", body, "--label", "audit", "--label", "needs-triage"],
+                                   capture_output=True, text=True)
+              print(out.stdout or out.stderr)
+          if not findings:
+              print("новых находок нет")
+          PY
