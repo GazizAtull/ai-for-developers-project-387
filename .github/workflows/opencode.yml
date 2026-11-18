@@ -1,0 +1,42 @@
+name: opencode
+
+# Агент OpenCode отвечает на команды /oc и /opencode в обсуждении issue и PR
+# и в комментариях к строкам diff. Скиллы берутся из .agents/skills/ (лежат в
+# репозитории), настройки трекера из docs/agents/, правила из AGENTS.md.
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+jobs:
+  opencode:
+    # Только команда в тексте, только доверенный автор, никаких ботов.
+    # Комментарии к PR из fork не получают секреты: событие от fork-PR не
+    # проходит проверку author_association, а pull_request_target не используется.
+    if: >-
+      (contains(github.event.comment.body, '/oc') || contains(github.event.comment.body, '/opencode')) &&
+      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association) &&
+      github.event.comment.user.type != 'Bot'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: opencode-${{ github.event.issue.number || github.event.pull_request.number }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Run OpenCode
+        uses: anomalyco/opencode/github@latest
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+        with:
+          model: opencode/big-pickle
+          mentions: /opencode,/oc
+          share: false
