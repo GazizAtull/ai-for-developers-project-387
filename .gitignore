@@ -10,3 +10,5 @@ backend/src/main/resources/static/
 agent/
 .env
 .env.*
+.review/
+checked-sha.txt

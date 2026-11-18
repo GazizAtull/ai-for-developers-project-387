@@ -33,7 +33,7 @@ jobs:
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
         with:
-          model: opencode/big-pickle
+          model: opencode/deepseek-v4.1-flash-free
           prompt: |
             Проведи предварительный разбор нового обращения по скиллу triage.
             Сначала прочитай AGENTS.md, docs/agents/ (трекер и метки), SPEC.md и GLOSSARY.md.
