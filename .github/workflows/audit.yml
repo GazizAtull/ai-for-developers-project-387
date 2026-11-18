@@ -34,9 +34,11 @@ jobs:
       - name: Build health report
         env:
           GH_TOKEN: ${{ github.token }}
-          APP_URL: https://call-calendar-4mq9.onrender.com
+          # Адрес проверяемого приложения: переменная репозитория APP_URL, иначе прежний рабочий адрес
+          APP_URL: ${{ vars.APP_URL || 'https://call-calendar-4mq9.onrender.com' }}
         run: |
           mkdir -p report
+          echo "$APP_URL" > report/app-url.txt
           npm ci --prefix frontend --ignore-scripts > /dev/null
           npm ci --prefix contract --ignore-scripts > /dev/null
           npm audit --prefix frontend --json > report/npm-audit-frontend.json || true
@@ -109,6 +111,12 @@ jobs:
           PY
           timeout 10m opencode run --model opencode/deepseek-v4.1-flash-free "$(cat prompt.md)" > raw.txt || echo "::warning::модель не ответила"
           cat raw.txt
+          mkdir -p out && cp raw.txt out/agent-output.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: audit-agent-output
+          path: out/
+          retention-days: 30
       - id: parse
         run: |
           python3 - <<'PY'
@@ -123,6 +131,13 @@ jobs:
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
               f.write("findings=" + json.dumps(items, ensure_ascii=False) + "\n")
           print(json.dumps(items, ensure_ascii=False, indent=2))
+          # Вывод агента виден в Summary прогона и при отсутствии находок
+          url_file = pathlib.Path("report/app-url.txt")
+          url = url_file.read_text(encoding="utf-8").strip() if url_file.exists() else "?"
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as s:
+              s.write(f"## Вывод агента аудита\n\nПроверено приложение: {url}\n\n")
+              s.write("Находок нет.\n" if not items else "".join(f"- `{i['fingerprint']}`: {i['title']}\n" for i in items))
+              s.write("\nДубли отсекает задание publish (см. его лог). Полный ответ агента: артефакт audit-agent-output.\n")
           PY
 
   publish:
@@ -137,6 +152,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           FINDINGS: ${{ needs.analyze.outputs.findings }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          APP_URL: ${{ vars.APP_URL || 'https://call-calendar-4mq9.onrender.com' }}
         run: |
           python3 - <<'PY'
           import json, os, subprocess
@@ -152,7 +168,8 @@ jobs:
               if dup:
                   print(f"дубль {f['fingerprint']}: уже есть #{dup['number']} ({dup['state']}), новое issue не создаю")
                   continue
-              body = f"{f.get('body', '')}\n\n---\nНайдено регулярным аудитом: {os.environ['RUN_URL']}\n{mark}"
+              body = (f"{f.get('body', '')}\n\n---\nПроверялось приложение: {os.environ['APP_URL']}\n"
+                      f"Отчёт и вывод агента: {os.environ['RUN_URL']} (артефакты audit-report, audit-agent-output)\n{mark}")
               out = subprocess.run(["gh", "issue", "create", "--repo", repo, "--title", f["title"], "--body", body, "--label", "audit", "--label", "needs-triage"],
                                    capture_output=True, text=True)
               print(out.stdout or out.stderr)
