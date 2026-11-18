@@ -73,6 +73,18 @@ docker run --rm -e PORT=8080 -p 8080:8080 call-calendar   # http://localhost:808
 docker run --rm -e PORT=10000 -p 10000:10000 call-calendar
 ```
 
+## Агенты в GitHub
+
+| Workflow | Событие | Модель | Назначение | Где результат |
+|---|---|---|---|---|
+| [`opencode.yml`](.github/workflows/opencode.yml) | `issue_comment`, `pull_request_review_comment` (`types: [created]`) с командой `/oc` или `/opencode` | `opencode/big-pickle` (бесплатная модель OpenCode, ключ `OPENCODE_API_KEY` в Secrets) | разбор issue, спецификация и тикеты (`to-spec`, `to-tickets`), реализация (`implement-spec`), правки PR по ревью | ответ комментарием от OpenCode App в issue/PR, прогон во вкладке Actions → opencode |
+
+- **Агент:** OpenCode GitHub App, установлен на репозиторий. Авторизация стандартная: OIDC-токен обменивается на токен приложения, поэтому у workflow только `contents: read` и `id-token: write`, у checkout `persist-credentials: false`.
+- **Команды (`mentions`):** набор по умолчанию, `/opencode` и `/oc`.
+- **`share: false`:** репозиторий открытый, сессии агента с контекстом задач не публикуются.
+- **Ограничения:** запускают только `OWNER`, `MEMBER`, `COLLABORATOR`; комментарии ботов игнорируются; fork-PR секреты не получают (`pull_request_target` не используется); `timeout-minutes: 30`; один прогон на issue/PR (`concurrency`). Остановить: Actions → opencode → Cancel workflow, отключить совсем: Disable workflow.
+- **Скиллы на раннере:** проектные скиллы лежат в `.agents/skills/` и приезжают с checkout, настройки трекера в `docs/agents/`.
+
 ## Проверки
 
 ```bash
