@@ -12,3 +12,5 @@ agent/
 .env.*
 .review/
 checked-sha.txt
+report/
+out/
