@@ -97,13 +97,18 @@ jobs:
               "последствие. Не повторяй линтер. Если подтверждённых дефектов нет, так и напиши. "
               "Ответ на русском, Markdown, начни с заголовка «## Авторевью».",
               "## Критерии (REVIEW.md)\n" + criteria,
-              "## Правила проекта (AGENTS.md)\n" + read("AGENTS.md", 5000),
-              f"## PR: {pr['title']}\n{pr['body'][:6000]}",
-              "## Связанные issue\n" + "\n\n".join(issues)[:30000],
-              "## Статусы CI на этот SHA (могут быть не готовы)\n" + read(".review/checks.json", 2000),
-              "## Diff\n```diff\n" + read(".review/diff.patch", 60000) + "\n```",
+              "## Правила проекта (AGENTS.md)\n" + read("AGENTS.md", 3000),
+              f"## PR: {pr['title']}\n{pr['body'][:4000]}",
+              "## Связанные issue\n" + "\n\n".join(issues)[:10000],
+              "## Статусы CI на этот SHA (могут быть не готовы)\n" + read(".review/checks.json", 1500),
+              "## Diff\n```diff\n" + read(".review/diff.patch", 24000) + "\n```",
           ]
-          pathlib.Path(".review/prompt.md").write_text("\n\n".join(parts), encoding="utf-8")
+          text = "\n\n".join(parts)
+          # Промпт уходит одним аргументом командной строки: в Linux не больше 128 КБ.
+          # Кириллица в UTF-8 занимает 2 байта, поэтому держим запас до 100 КБ.
+          while len(text.encode("utf-8")) > 100_000:
+              text = text[: int(len(text) * 0.9)] + "\n…(обрезано)…"
+          pathlib.Path(".review/prompt.md").write_text(text, encoding="utf-8")
           PY
           wc -c .review/prompt.md
           timeout 12m opencode run --model opencode/deepseek-v4.1-flash-free "$(cat .review/prompt.md)" \
