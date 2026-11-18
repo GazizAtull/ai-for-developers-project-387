@@ -97,7 +97,10 @@ public class CalendarService {
       String eventTypeId, Instant start, String guestName, String guestEmail, String topic) {
     String name = guestName == null ? "" : guestName.strip();
     String email = guestEmail == null ? "" : guestEmail.strip();
-    String cleanTopic = topic == null ? "" : topic.strip();
+    String cleanTopic = topic == null ? null : topic.strip();
+    if (cleanTopic != null && cleanTopic.isEmpty()) {
+      cleanTopic = null;
+    }
     if (start == null) {
       throw invalid("Начало слота обязательно");
     }
@@ -107,7 +110,7 @@ public class CalendarService {
     if (!EMAIL.matcher(email).matches()) {
       throw invalid("Некорректный email");
     }
-    if (cleanTopic.codePointCount(0, cleanTopic.length()) > 300) {
+    if (cleanTopic != null && cleanTopic.codePointCount(0, cleanTopic.length()) > 300) {
       throw invalid("Тема разговора не длиннее 300 символов");
     }
     synchronized (lock) {

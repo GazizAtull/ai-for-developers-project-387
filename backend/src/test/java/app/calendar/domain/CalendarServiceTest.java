@@ -2,6 +2,7 @@ package app.calendar.domain;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -112,12 +113,12 @@ class CalendarServiceTest {
     Booking withoutTopic =
         service.book(
             short30.id(), at("2026-11-19", "10:30"), "Боб", "bob@example.com", null);
-    assertEquals("", withoutTopic.topic());
+    assertNull(withoutTopic.topic());
 
     Booking blankTopic =
         service.book(
             short30.id(), at("2026-11-19", "11:00"), "Вика", "vika@example.com", "   \n  ");
-    assertEquals("", blankTopic.topic());
+    assertNull(blankTopic.topic());
   }
 
   @Test

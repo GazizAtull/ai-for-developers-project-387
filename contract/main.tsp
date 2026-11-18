@@ -78,7 +78,7 @@ model Booking {
   guestName: string;
   guestEmail: string;
 
-  @doc("Тема разговора. Пустая строка, если гость её не указал.")
+  @doc("Тема разговора. Поля нет или `null`, если гость её не указал.")
   @maxLength(300) topic?: string;
 }
 

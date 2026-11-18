@@ -35,6 +35,11 @@ class ApiContractTest {
     return json.readTree(r.getBody());
   }
 
+  private void assertNoTopic(JsonNode booking) {
+    JsonNode topic = booking.get("topic");
+    assertThat(topic == null || topic.isNull()).isTrue();
+  }
+
   private ResponseEntity<String> createType(String id, String title, int minutes) {
     return http.postForEntity(
         "/api/event-types",
@@ -166,11 +171,26 @@ class ApiContractTest {
 
     ResponseEntity<String> created = book("intro", ten, "Аня");
     assertThat(created.getStatusCode().value()).isEqualTo(201);
-    assertThat(body(created).get("topic").asText()).isEmpty();
+    assertNoTopic(body(created));
 
     ResponseEntity<String> list = http.getForEntity("/api/bookings", String.class);
     assertThat(body(list)).hasSize(1);
     assertThat(body(list).get(0).get("guestName").asText()).isEqualTo("Аня");
+    assertNoTopic(body(list).get(0));
+  }
+
+  @Test
+  void bookingWithBlankTopicIsReturnedWithoutTopic() throws Exception {
+    createType("intro", "Знакомство", 30);
+    String ten = tenOClock("intro");
+
+    ResponseEntity<String> created = book("intro", ten, "Аня", "   \n  ");
+    assertThat(created.getStatusCode().value()).isEqualTo(201);
+    assertNoTopic(body(created));
+
+    ResponseEntity<String> list = http.getForEntity("/api/bookings", String.class);
+    assertThat(body(list)).hasSize(1);
+    assertNoTopic(body(list).get(0));
   }
 
   @Test

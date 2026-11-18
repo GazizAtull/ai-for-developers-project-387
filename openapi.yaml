@@ -184,7 +184,7 @@ components:
         topic:
           type: string
           maxLength: 300
-          description: Тема разговора. Пустая строка, если гость её не указал.
+          description: Тема разговора. Поля нет или `null`, если гость её не указал.
     CreateBooking:
       type: object
       required:

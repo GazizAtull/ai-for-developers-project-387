@@ -32,7 +32,7 @@ export type Booking = {
     guestName: string;
     guestEmail: string;
     /**
-     * Тема разговора. Пустая строка, если гость её не указал.
+     * Тема разговора. Поля нет или `null`, если гость её не указал.
      */
     topic?: string;
 };
