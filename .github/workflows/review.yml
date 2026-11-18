@@ -57,7 +57,7 @@ jobs:
         run: |
           # Версия CLI зафиксирована: без удалённого install-скрипта в шаге с секретом
           npm install -g opencode-ai@1.19.6
-          opencode run --model opencode/big-pickle "$(cat <<'EOF'
+          opencode run --model opencode/deepseek-v4.1-flash-free "$(cat <<'EOF'
           Ты независимый ревьюер pull request календаря звонков. Код не меняй.
           Прочитай REVIEW.md (критерии ревью) и AGENTS.md. Контекст PR лежит в .review/:
           pr.json (описание PR), diff.patch (изменения), issue-*.json (исходное обращение,
