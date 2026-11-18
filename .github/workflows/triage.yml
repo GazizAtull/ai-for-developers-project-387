@@ -1,0 +1,45 @@
+name: triage
+
+# Автотриаж новых входящих обращений. Тикеты, которые создают скиллы
+# to-spec/to-tickets (метки ready-for-agent / ready-for-human, автор-бот),
+# уже подготовлены к реализации и повторно не разбираются.
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  triage:
+    if: >-
+      github.event.issue.user.type != 'Bot' &&
+      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.issue.author_association) &&
+      !contains(github.event.issue.labels.*.name, 'ready-for-agent') &&
+      !contains(github.event.issue.labels.*.name, 'ready-for-human')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: triage-${{ github.event.issue.number }}
+      cancel-in-progress: true
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Triage with OpenCode
+        uses: anomalyco/opencode/github@latest
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+        with:
+          model: opencode/big-pickle
+          share: false
+          prompt: |
+            Проведи предварительный разбор нового обращения по скиллу triage.
+            Сначала прочитай AGENTS.md, docs/agents/ (трекер и метки), SPEC.md и GLOSSARY.md.
+            1. Проверь, что из обращения приложение уже умеет, со ссылками на файлы.
+            2. Если данных не хватает, задай пронумерованные вопросы и поставь метки needs-triage и needs-info.
+            3. Если обращение понятно, предложи следующий шаг (to-spec) и оставь метку needs-triage: решение брать в работу принимает человек.
+            4. Если это дубликат или уже сделано, сошлись на issue/код и предложи закрыть, сам не закрывай.
+            Код не меняй, веток и PR не создавай. Ответь одним комментарием в этом issue.
