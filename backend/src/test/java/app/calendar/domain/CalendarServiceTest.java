@@ -142,6 +142,27 @@ class CalendarServiceTest {
   }
 
   @Test
+  void topicLengthCountsCodePointsNotUtf16Units() {
+    String max = "😀".repeat(300);
+    Booking booking =
+        service.book(
+            short30.id(), at("2026-11-19", "10:00"), "Аня", "anya@example.com", max);
+    assertEquals(300, booking.topic().codePointCount(0, booking.topic().length()));
+
+    CalendarException e =
+        assertThrows(
+            CalendarException.class,
+            () ->
+                service.book(
+                    short30.id(),
+                    at("2026-11-19", "10:30"),
+                    "Боб",
+                    "bob@example.com",
+                    "😀".repeat(301)));
+    assertEquals(Kind.VALIDATION_ERROR, e.kind());
+  }
+
+  @Test
   void conflictWithTopicStillReturnsSlotTaken() {
     service.book(
         short30.id(), at("2026-11-19", "10:00"), "Аня", "anya@example.com", "Первая тема");

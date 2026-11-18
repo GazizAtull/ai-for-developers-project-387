@@ -107,7 +107,7 @@ public class CalendarService {
     if (!EMAIL.matcher(email).matches()) {
       throw invalid("Некорректный email");
     }
-    if (cleanTopic.length() > 300) {
+    if (cleanTopic.codePointCount(0, cleanTopic.length()) > 300) {
       throw invalid("Тема разговора не длиннее 300 символов");
     }
     synchronized (lock) {
