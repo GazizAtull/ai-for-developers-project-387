@@ -1,0 +1,64 @@
+[tools]
+java = "temurin-21"
+node = "22"
+
+[tasks.install]
+description = "Установить зависимости"
+run = [
+  "npm ci --prefix contract",
+  "npm ci --prefix frontend",
+  "npm exec --prefix frontend -- playwright install chromium",
+]
+
+[tasks.generate]
+description = "TypeSpec -> openapi.yaml -> SDK фронтенда"
+run = ["npm run build --prefix contract", "npm run generate --prefix frontend"]
+
+[tasks."check:generated"]
+description = "openapi.yaml и SDK не отстают от контракта"
+run = [
+  "mise run generate",
+  "git diff --exit-code -- openapi.yaml frontend/src/api",
+  "test -z \"$(git status --porcelain -- openapi.yaml frontend/src/api)\"",
+]
+
+[tasks."check:frontend"]
+description = "Линтер, типы и тесты фронтенда"
+run = [
+  "npm run lint --prefix frontend",
+  "npm run typecheck --prefix frontend",
+  "npm run test --prefix frontend",
+]
+
+[tasks."check:backend"]
+description = "Компиляция с -Xlint и тесты бэкенда"
+dir = "backend"
+run = "./gradlew --no-daemon test"
+
+[tasks."check:e2e"]
+description = "Браузерный сценарий Playwright против настоящего бэкенда"
+dir = "frontend"
+run = "npm run e2e"
+
+[tasks.check]
+description = "Все проверки. Эту же команду запускает CI"
+run = [
+  "mise run check:generated",
+  "mise run check:frontend",
+  "mise run check:backend",
+  "mise run check:e2e",
+]
+
+[tasks.dev-backend]
+description = "Бэкенд на :8080"
+dir = "backend"
+run = "./gradlew bootRun"
+
+[tasks.dev-frontend]
+description = "Фронтенд на :5173 с прокси /api на :8080"
+dir = "frontend"
+run = "npm run dev"
+
+[tasks.build]
+description = "Docker-образ"
+run = "docker build -t call-calendar ."

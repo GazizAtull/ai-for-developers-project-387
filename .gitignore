@@ -1,0 +1,12 @@
+node_modules/
+tsp-output/
+dist/
+build/
+.gradle/
+backend/src/main/resources/static/
+.idea/
+.DS_Store
+.claude/skills/
+agent/
+.env
+.env.*
