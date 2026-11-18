@@ -104,6 +104,7 @@ export default function OwnerPage() {
               <div>
                 {b.guestName}, {b.guestEmail}
               </div>
+              {b.topic && <div className="topic">Тема: {b.topic}</div>}
             </li>
           ))}
           {bookings.length === 0 && <li className="muted">Записей пока нет.</li>}

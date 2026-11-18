@@ -90,8 +90,17 @@ public class CalendarService {
   }
 
   public Booking book(String eventTypeId, Instant start, String guestName, String guestEmail) {
+    return book(eventTypeId, start, guestName, guestEmail, null);
+  }
+
+  public Booking book(
+      String eventTypeId, Instant start, String guestName, String guestEmail, String topic) {
     String name = guestName == null ? "" : guestName.strip();
     String email = guestEmail == null ? "" : guestEmail.strip();
+    String cleanTopic = topic == null ? null : topic.strip();
+    if (cleanTopic != null && cleanTopic.isEmpty()) {
+      cleanTopic = null;
+    }
     if (start == null) {
       throw invalid("Начало слота обязательно");
     }
@@ -100,6 +109,9 @@ public class CalendarService {
     }
     if (!EMAIL.matcher(email).matches()) {
       throw invalid("Некорректный email");
+    }
+    if (cleanTopic != null && cleanTopic.codePointCount(0, cleanTopic.length()) > 300) {
+      throw invalid("Тема разговора не длиннее 300 символов");
     }
     synchronized (lock) {
       EventType type = requireType(eventTypeId);
@@ -122,7 +134,14 @@ public class CalendarService {
       }
       Booking booking =
           new Booking(
-              UUID.randomUUID(), type.id(), type.title(), slot.start(), slot.end(), name, email);
+              UUID.randomUUID(),
+              type.id(),
+              type.title(),
+              slot.start(),
+              slot.end(),
+              name,
+              email,
+              cleanTopic);
       bookings.add(booking);
       return booking;
     }
