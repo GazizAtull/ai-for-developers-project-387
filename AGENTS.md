@@ -24,6 +24,11 @@
 - Релизы: release-please (`.github/workflows/release-please.yml`) собирает release-PR и `CHANGELOG.md` из коммитов `feat:`/`fix:` в `main`. Версию руками не менять
 - Коммит реализации ссылается на тикет, который закрывает: `feat: запись на свободный слот (#12)`
 
+## Агент в GitHub Actions
+- В воркфлоу `opencode.yml` не делай `git commit`, `git push`, не создавай ветки и PR сам: оставь изменения незакоммиченными. OpenCode GitHub Action сам создаёт ветку, коммитит, пушит и открывает PR. Закоммиченная локально работа на раннере теряется.
+- Заголовок PR и сообщение коммита по Conventional Commits со ссылкой на тикет. Описание PR по шаблону `.github/pull_request_template.md`.
+- В `mise` на раннере может не быть: запускай шаги `mise.toml` напрямую (`npm ... --prefix`, `./gradlew`).
+
 ## Agent skills
 
 Набор mattpocock/skills лежит в `.agents/skills/`, версии в `skills-lock.json`. Восстановить и подключить к агенту: `npx skills experimental_install`.
