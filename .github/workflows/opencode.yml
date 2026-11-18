@@ -1,23 +1,67 @@
 name: opencode
+run-name: opencode #${{ github.event.issue.number || github.event.pull_request.number }}
 
 # Агент OpenCode отвечает на команды /oc и /opencode в обсуждении issue и PR
 # и в комментариях к строкам diff. Скиллы берутся из .agents/skills/ (лежат в
 # репозитории), настройки трекера из docs/agents/, правила из AGENTS.md.
+#
+# Бюджет: не больше MAX_RUNS допущенных вызовов агента на один PR. Счётчик
+# считается кодом до вызова модели по истории Actions этого воркфлоу
+# (run-name «opencode #<номер>»), которую токен агента переписать не может.
 on:
   issue_comment:
     types: [created]
   pull_request_review_comment:
     types: [created]
 
+env:
+  MAX_RUNS: 3
+  TARGET: ${{ github.event.issue.number || github.event.pull_request.number }}
+  IS_PR: ${{ github.event.issue.pull_request != null || github.event.pull_request != null }}
+
 jobs:
-  opencode:
+  budget:
     # Только команда в тексте, только доверенный автор, никаких ботов.
-    # Комментарии к PR из fork не получают секреты: событие от fork-PR не
-    # проходит проверку author_association, а pull_request_target не используется.
+    # Комментарии к PR из fork не получают секреты: автор fork не проходит
+    # проверку author_association, а pull_request_target не используется.
     if: >-
       (contains(github.event.comment.body, '/oc') || contains(github.event.comment.body, '/opencode')) &&
       contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association) &&
       github.event.comment.user.type != 'Bot'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+    outputs:
+      ok: ${{ steps.count.outputs.ok }}
+      used: ${{ steps.count.outputs.used }}
+    steps:
+      - id: count
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$IS_PR" != "true" ]; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"; echo "used=0" >> "$GITHUB_OUTPUT"
+            echo "issue #$TARGET: бюджет считается только для PR"; exit 0
+          fi
+          # Прошлые допущенные запуски для этого PR (пропущенные фильтром не считаются)
+          previous=$(gh api --paginate "repos/${{ github.repository }}/actions/workflows/opencode.yml/runs?per_page=100" \
+            --jq "[.workflow_runs[] | select(.display_title == \"opencode #$TARGET\" and .id != ${{ github.run_id }} and .conclusion != \"skipped\")] | length" \
+            | awk '{s+=$1} END {print s+0}')
+          # Повторы этого же запуска через Re-run тоже расходуют попытку
+          used=$(( previous + ${{ github.run_attempt }} - 1 ))
+          echo "used=$used" >> "$GITHUB_OUTPUT"
+          if [ "$used" -ge "$MAX_RUNS" ]; then
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::PR #$TARGET: бюджет $MAX_RUNS запусков исчерпан ($used), модель не вызывается"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+            echo "PR #$TARGET: попытка $((used + 1)) из $MAX_RUNS"
+          fi
+
+  opencode:
+    needs: budget
+    if: needs.budget.outputs.ok == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     concurrency:
@@ -26,16 +70,61 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    outputs:
+      reason: ${{ steps.reason.outputs.reason }}
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Run OpenCode
+      - id: preflight
+        env:
+          KEY: ${{ secrets.OPENCODE_API_KEY }}
+        run: test -n "$KEY" || { echo "::error::OPENCODE_API_KEY не задан"; exit 1; }
+
+      - id: run
+        name: Run OpenCode
         uses: anomalyco/opencode/github@v1.19.6
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
         with:
           model: opencode/big-pickle
           mentions: /opencode,/oc
+
+      - id: reason
+        if: always()
+        run: |
+          if [ "${{ steps.preflight.outcome }}" != "success" ]; then echo "reason=infra" >> "$GITHUB_OUTPUT"
+          elif [ "${{ steps.run.outcome }}" = "failure" ]; then echo "reason=agent_failed" >> "$GITHUB_OUTPUT"
+          else echo "reason=ok" >> "$GITHUB_OUTPUT"; fi
+
+  report:
+    # Итог без модели: исчерпание бюджета или сбой агента, со ссылкой на логи.
+    needs: [budget, opencode]
+    if: >-
+      always() && needs.budget.result == 'success' &&
+      (needs.budget.outputs.ok != 'true' || needs.opencode.result != 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          OK: ${{ needs.budget.outputs.ok }}
+          USED: ${{ needs.budget.outputs.used }}
+          RESULT: ${{ needs.opencode.result }}
+          REASON: ${{ needs.opencode.outputs.reason }}
+        run: |
+          if [ "$OK" != "true" ]; then reason=limit_exhausted
+          elif [ -n "$REASON" ] && [ "$REASON" != "ok" ]; then reason=$REASON
+          elif [ "$RESULT" = "cancelled" ] || [ "$RESULT" = "failure" ]; then reason=timeout
+          else reason=unknown; fi
+          sha=$(gh api "repos/${{ github.repository }}/pulls/$TARGET" --jq .head.sha 2>/dev/null || echo "${{ github.sha }}")
+          logs="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          body=$(printf '**Агент не выполнил команду: `%s`**\n\n- Запусков для #%s: %s из %s\n- SHA: `%s`\n- Логи: %s\n- Статус: **нужен человек**' \
+            "$reason" "$TARGET" "${USED:-?}" "$MAX_RUNS" "$sha" "$logs")
+          gh api "repos/${{ github.repository }}/issues/$TARGET/comments" -f body="$body" > /dev/null
+          echo "$body"

@@ -6,7 +6,12 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
+      # Для PR проверяем версию автора (head SHA), а не временный merge-коммит
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Record checked SHA
+        run: git rev-parse HEAD | tee checked-sha.txt
       - uses: jdx/mise-action@v2
       - uses: actions/cache@v4
         with:
@@ -17,6 +22,18 @@ jobs:
       - run: mise run install
       - run: npm exec --prefix frontend -- playwright install-deps chromium
       - run: mise run check
+        env:
+          PW_TRACE: "on"
+      - name: Upload browser check (trace + SHA)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            checked-sha.txt
+            frontend/playwright-report/
+            frontend/test-results/
+          retention-days: 14
 
   docker:
     runs-on: ubuntu-latest

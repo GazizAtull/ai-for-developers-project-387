@@ -10,10 +10,11 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   retries: process.env.CI ? 1 : 0,
-  reporter: process.env.CI ? 'list' : 'line',
+  reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'line',
   use: {
     baseURL: 'http://localhost:5173',
-    trace: 'retain-on-failure',
+    // В CI trace пишется и для успешного прогона: это артефакт проверки версии PR
+    trace: process.env.PW_TRACE === 'on' ? 'on' : 'retain-on-failure',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: [
